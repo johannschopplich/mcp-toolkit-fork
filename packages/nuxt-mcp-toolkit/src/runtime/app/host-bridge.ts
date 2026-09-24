@@ -16,7 +16,6 @@ import { version } from '../../../package.json'
  * @see https://mcpui.dev/guide/embeddable-ui
  */
 
-const DATA_SCRIPT_ID = '__mcp_app_data__'
 const MCP_APPS_PROTOCOL_VERSION = '2026-01-26'
 const HANDSHAKE_TIMEOUT_MS = 5_000
 const APP_INFO = { name: 'nuxt-mcp-toolkit', version } as const
@@ -55,7 +54,7 @@ export interface HostBridge {
   hostContext: Ref<HostContext | null>
   /** Last error from the transport, the host, or a malformed payload. */
   error: Ref<Error | null>
-  /** Initial payload from the inline data-script or `window.openai.toolOutput`. */
+  /** Initial payload from `window.openai.toolOutput`. */
   initialData: unknown
   /** `window.openai`, if ChatGPT injected it. */
   openai: OpenAiAppsGlobal | undefined
@@ -116,20 +115,8 @@ function createBridge(): HostBridge {
     error.value = err instanceof Error ? err : new Error(String(err))
   }
 
-  let initialData: unknown
-  if (typeof document !== 'undefined') {
-    const el = document.getElementById(DATA_SCRIPT_ID)
-    if (el?.textContent) {
-      try {
-        initialData = JSON.parse(el.textContent)
-      }
-      catch (err) {
-        setError(err)
-      }
-    }
-  }
   const openai = typeof window !== 'undefined' ? window.openai : undefined
-  if (openai?.toolOutput !== undefined) initialData = openai.toolOutput
+  const initialData = openai?.toolOutput
 
   if (typeof window === 'undefined' || !window.parent || window.parent === window) {
     return makeNoopBridge({ hostContext, error, initialData, openai, setError })

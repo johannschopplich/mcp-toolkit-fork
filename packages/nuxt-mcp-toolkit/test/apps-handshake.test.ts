@@ -202,13 +202,7 @@ describe('useMcpApp (host bridge)', () => {
     scope.stop()
   })
 
-  it('keeps `initialData` unchanged when `data` is refreshed by callTool or tool-result', async () => {
-    ;(globalThis as { document: { getElementById: (id: string) => { textContent: string } | null, readyState: string } }).document = {
-      getElementById: (id: string) =>
-        id === '__mcp_app_data__' ? { textContent: JSON.stringify({ listId: 'abc-123' }) } : null,
-      readyState: 'complete',
-    }
-
+  it('keeps `initialData` at the first payload when `data` is refreshed by callTool or tool-result', async () => {
     const { useMcpApp } = await import('../src/runtime/app/use-mcp-app')
     const scope = effectScope()
     let api: ReturnType<typeof useMcpApp<{ listId: string, total?: number }>> | undefined
@@ -216,6 +210,12 @@ describe('useMcpApp (host bridge)', () => {
       api = useMcpApp<{ listId: string, total?: number }>()
     })
 
+    expect(api?.initialData.value).toBeNull()
+    dispatch({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: { structuredContent: { listId: 'abc-123' } },
+    })
     expect(api?.initialData.value).toEqual({ listId: 'abc-123' })
     expect(api?.data.value).toEqual({ listId: 'abc-123' })
 

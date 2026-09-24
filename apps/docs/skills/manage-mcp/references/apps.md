@@ -2,7 +2,7 @@
 
 `defineMcpApp` lets you author Vue Single-File Components that ship to MCP-Apps-compatible hosts (ChatGPT, Cursor) as interactive iframes backed by your MCP tool handler. Available since v0.15.
 
-The macro is extracted at build time, the SFC is bundled into a single HTML file, and the handler runs server-side so its `structuredContent` is **inlined into the iframe HTML on first paint** — no extra round-trip.
+The macro is extracted at build time, the SFC is bundled into a single HTML file, and the handler runs server-side — the host renders the HTML from the `ui://` resource and pushes the handler's `structuredContent` into the iframe.
 
 ## File Convention
 
@@ -145,7 +145,7 @@ Auto-imported into every MCP App SFC. Returns the iframe ↔ host bridge:
 
 ```typescript
 const {
-  initialData,  // Ref<T | null>            — snapshot of handler payload at mount, never updated
+  initialData,  // Ref<T | null>            — first payload the view receives, never updated after
   data,         // Ref<T | null>            — hydrated from structuredContent, refreshed by callTool
   loading,      // Ref<boolean>             — true until first payload arrives
   error,        // Ref<Error | null>        — bridge / transport / payload errors

@@ -8,9 +8,9 @@ import { useExternalLink } from './use-external-link'
 export type { HostContext } from './host-bridge'
 
 export interface UseMcpAppReturn<T = unknown> {
-  /** Snapshot of the handler's initial `structuredContent` at mount — never updated. */
+  /** First `structuredContent` the view receives — never updated after. */
   initialData: Ref<T | null>
-  /** Hydrated from the inline data-script, then refreshed via `tool-result` and `callTool`. */
+  /** Latest `structuredContent`, refreshed via `tool-result` and `callTool`. */
   data: Ref<T | null>
   /** Last error from the host, the transport, or a malformed payload. */
   error: Ref<Error | null>

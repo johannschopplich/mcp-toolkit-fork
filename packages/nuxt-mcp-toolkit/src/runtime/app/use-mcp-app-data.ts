@@ -2,9 +2,9 @@ import { getCurrentScope, onScopeDispose, ref, type Ref } from 'vue'
 import { useHostBridge, type HostContext } from './host-bridge'
 
 export interface UseMcpAppDataReturn<T> {
-  /** Snapshot of the inline data-script (or `window.openai.toolOutput`) at mount — never updated. */
+  /** First payload the view receives — never updated after. */
   initialData: Ref<T | null>
-  /** Hydrated from the inline data-script, then refreshed via host `tool-result` pushes. */
+  /** Latest payload, refreshed via host `tool-result` pushes. */
   data: Ref<T | null>
   /** One-way latch: `true` until the first payload arrives, `false` forever after. */
   loading: Ref<boolean>
@@ -22,14 +22,13 @@ export interface UseMcpAppDataReturn<T> {
 export function useMcpAppData<T = unknown>(): UseMcpAppDataReturn<T> {
   const bridge = useHostBridge()
 
-  const initialData = ref<T | null>(
-    bridge.initialData !== undefined ? (bridge.initialData as T) : null,
-  ) as Ref<T | null>
+  const initialData = ref<T | null>(null) as Ref<T | null>
   const data = ref<T | null>(null) as Ref<T | null>
   const loading = ref(true)
 
   const setData = (next: unknown): void => {
     if (next === null || next === undefined) return
+    if (initialData.value === null) initialData.value = next as T
     data.value = next as T
     loading.value = false
   }
