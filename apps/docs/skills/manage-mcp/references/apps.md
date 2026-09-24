@@ -145,15 +145,19 @@ Auto-imported into every MCP App SFC. Returns the iframe ↔ host bridge:
 
 ```typescript
 const {
-  initialData,  // Ref<T | null>            — snapshot of handler payload at mount, never updated
-  data,         // Ref<T | null>            — hydrated from structuredContent, refreshed by callTool
-  loading,      // Ref<boolean>             — true until first payload arrives
-  error,        // Ref<Error | null>        — bridge / transport / payload errors
-  pending,      // Ref<boolean>             — true while a callTool() is in flight
-  hostContext,  // Ref<HostContext | null>  — theme, displayMode, locale, …
-  callTool,     // (name, params?) => Promise<T | null>
-  sendPrompt,   // (prompt: string) => void
-  openLink,     // (url: string) => void
+  initialData,        // Ref<T | null>            — snapshot of handler payload at mount, never updated
+  data,               // Ref<T | null>            — hydrated from structuredContent, refreshed by callTool
+  loading,            // Ref<boolean>             — true until first payload arrives
+  error,              // Ref<Error | null>        — bridge / transport / payload errors
+  pending,            // Ref<boolean>             — true while a callTool() is in flight
+  hostContext,        // Ref<HostContext | null>  — theme, displayMode, locale, …
+  hostCapabilities,   // Ref<HostCapabilities | null>
+  callTool,           // (name, params?) => Promise<T | null>
+  sendPrompt,         // (prompt: string) => void
+  openLink,           // (url: string) => void
+  requestDisplayMode, // (mode) => Promise<DisplayMode>
+  updateModelContext, // ({ content?, structuredContent? }) => Promise<void>
+  downloadFile,       // (contents) => Promise<void>
 } = useMcpApp<MyPayload>()
 ```
 
@@ -175,7 +179,7 @@ const isFullscreen = computed(() => hostContext.value?.displayMode === 'fullscre
 </template>
 ```
 
-`hostContext` is `null` on the first paint and populates after the handshake (~50ms).
+`hostContext` is `null` on the first paint, populates after the handshake (~50ms), and follows `host-context-changed` updates from the host.
 
 ### `sendPrompt(prompt)` — follow-ups
 
@@ -209,6 +213,15 @@ Sandboxed iframes can't open windows. `openLink` asks the host to open a URL in 
   Learn more
 </button>
 ```
+
+### Display mode, model context, downloads
+
+- `requestDisplayMode(mode)` resolves with the mode the host actually set and updates `hostContext.displayMode`.
+- `updateModelContext({ content, structuredContent })` replaces the context the app contributes to the model's next turn.
+- `downloadFile(contents)` saves `resource` / `resource_link` items through the host; it rejects with `cancelled: true` when the user cancels.
+- Check `hostCapabilities` first – `updateModelContext` and `downloadFile` reject with `code: -32601` when the host lacks the capability.
+- `useToolCall(name)` from `@nuxtjs/mcp-toolkit/app` calls a tool without replacing `data`.
+- In Claude, iframe tool calls only reach read-only tools (`readOnlyHint: true`); route writes through `sendPrompt`.
 
 ## CSP (Content Security Policy)
 

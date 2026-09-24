@@ -1,5 +1,5 @@
 import { getCurrentScope, onScopeDispose, ref, type Ref } from 'vue'
-import { useHostBridge, type HostContext } from './host-bridge'
+import { useHostBridge, type HostCapabilities, type HostContext } from './host-bridge'
 
 export interface UseMcpAppDataReturn<T> {
   /** Snapshot of the inline data-script (or `window.openai.toolOutput`) at mount — never updated. */
@@ -10,8 +10,10 @@ export interface UseMcpAppDataReturn<T> {
   loading: Ref<boolean>
   /** Last error from the host, the transport, or a malformed payload. */
   error: Ref<Error | null>
-  /** Negotiated host context. `null` until the handshake completes. */
+  /** Negotiated host context. `null` until the handshake completes, then kept current by `host-context-changed`. */
   hostContext: Ref<HostContext | null>
+  /** Capabilities the host announced in the handshake. `null` until it completes. */
+  hostCapabilities: Ref<HostCapabilities | null>
 }
 
 /**
@@ -45,5 +47,6 @@ export function useMcpAppData<T = unknown>(): UseMcpAppDataReturn<T> {
     loading,
     error: bridge.error,
     hostContext: bridge.hostContext,
+    hostCapabilities: bridge.hostCapabilities,
   }
 }
