@@ -219,7 +219,7 @@ Sandboxed iframes can't open windows. `openLink` asks the host to open a URL in 
 - `requestDisplayMode(mode)` resolves with the mode the host actually set and updates `hostContext.displayMode`.
 - `updateModelContext({ content, structuredContent })` replaces the context the app contributes to the model's next turn.
 - `downloadFile(contents)` saves `resource` / `resource_link` items through the host; it rejects with `cancelled: true` when the user cancels.
-- Check `hostCapabilities` first – `updateModelContext` and `downloadFile` reject with `code: -32601` when the host lacks the capability.
+- Check `hostCapabilities` first — `updateModelContext` and `downloadFile` reject with `code: -32601` when the host lacks the capability.
 - `useToolCall(name)` from `@nuxtjs/mcp-toolkit/app` calls a tool without replacing `data`.
 - In Claude, iframe tool calls only reach read-only tools (`readOnlyHint: true`); route writes through `sendPrompt`.
 

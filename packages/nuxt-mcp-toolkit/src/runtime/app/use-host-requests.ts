@@ -6,12 +6,12 @@ const DISPLAY_MODE_TIMEOUT_MS = 10_000
 const DOWNLOAD_TIMEOUT_MS = 120_000
 const METHOD_NOT_FOUND = -32601
 
-/** A file for `downloadFile` – the host derives the suggested filename from the last URI segment. */
+/** A file for `downloadFile` — the host derives the suggested filename from the last URI segment. */
 export type DownloadFileContent = EmbeddedResource | ResourceLink
 
 export interface UseHostRequestsReturn {
   /**
-   * Ask the host for a display mode and resolve with the mode it set – or with the
+   * Ask the host for a display mode and resolve with the mode it set — or with the
    * current mode, without asking, when the host does not offer the requested one.
    */
   requestDisplayMode: (mode: DisplayMode) => Promise<DisplayMode>

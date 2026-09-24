@@ -66,7 +66,7 @@ declare global {
 
 export type LegacyMessageType = 'prompt' | 'link'
 
-/** Rejection of a host request – the host's JSON-RPC `code` and `data`, or `cancelled` for a declined download. */
+/** Rejection of a host request — the host's JSON-RPC `code` and `data`, or `cancelled` for a declined download. */
 export interface McpAppRequestError extends Error {
   code?: number
   data?: unknown
@@ -229,7 +229,7 @@ function createBridge(): HostBridge {
       return
     }
     if (data.method === 'ui/notifications/host-context-changed') {
-      // Skip no-op updates – Claude repeats unchanged `safeAreaInsets` throughout a fullscreen animation.
+      // Skip no-op updates — Claude repeats unchanged `safeAreaInsets` throughout a fullscreen animation.
       const changes = (data.params ?? {}) as Partial<HostContext>
       const current = hostContext.value ?? {}
       const isUnchanged = Object.entries(changes)
