@@ -304,7 +304,7 @@ export function _createAppTool(
 
   return {
     name: app.name ?? ctx.name,
-    // Registration would otherwise title it from the generated `<name>.tool.mjs`.
+    // Title from the SFC filename, as file-based tools are titled from theirs.
     title: app.title ?? titleCase(ctx.name),
     description: app.description,
     inputSchema: app.inputSchema,
