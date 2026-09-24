@@ -125,6 +125,13 @@ function createBridge(): HostBridge {
   let nextId = 1
   const pendingJsonRpc = new Map<string | number, PendingRequest>()
   const toolResultSubs = new Set<(data: unknown) => void>()
+  // Replayed to late subscribers — hosts push each result only once.
+  let latestToolResult: unknown
+  const publishToolResult = (next: unknown): void => {
+    if (next === undefined) return
+    latestToolResult = next
+    for (const sub of toolResultSubs) sub(next)
+  }
 
   const post = (msg: unknown): void => {
     try {
@@ -169,15 +176,11 @@ function createBridge(): HostBridge {
       else entry.resolve(data.result)
       return
     }
-    if (data.method === 'ui/notifications/tool-result') {
-      const next = data.params?.structuredContent
-      if (next !== undefined) for (const sub of toolResultSubs) sub(next)
-    }
+    if (data.method === 'ui/notifications/tool-result') publishToolResult(data.params?.structuredContent)
   }
 
   const onOpenAiSetGlobals = (event: Event): void => {
-    const next = (event as CustomEvent<{ globals?: { toolOutput?: unknown } }>).detail?.globals?.toolOutput
-    if (next !== undefined) for (const sub of toolResultSubs) sub(next)
+    publishToolResult((event as CustomEvent<{ globals?: { toolOutput?: unknown } }>).detail?.globals?.toolOutput)
   }
 
   window.addEventListener('message', onMessage)
@@ -224,6 +227,7 @@ function createBridge(): HostBridge {
     postLegacy,
     onToolResult: (cb) => {
       toolResultSubs.add(cb)
+      if (latestToolResult !== undefined) cb(latestToolResult)
       return () => toolResultSubs.delete(cb)
     },
     whenReady: () => handshakePromise,

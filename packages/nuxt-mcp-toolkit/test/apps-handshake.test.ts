@@ -202,6 +202,25 @@ describe('useMcpApp (host bridge)', () => {
     scope.stop()
   })
 
+  it('hands the latest tool result to a `useMcpApp()` call made after the push', async () => {
+    const { useMcpApp } = await import('../src/runtime/app/use-mcp-app')
+    const scope = effectScope()
+    scope.run(() => useMcpApp())
+    dispatch({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: { structuredContent: { listId: 'abc-123' } },
+    })
+
+    let late: ReturnType<typeof useMcpApp<{ listId: string }>> | undefined
+    scope.run(() => {
+      late = useMcpApp<{ listId: string }>()
+    })
+    expect(late?.data.value).toEqual({ listId: 'abc-123' })
+    expect(late?.loading.value).toBe(false)
+    scope.stop()
+  })
+
   it('keeps `initialData` at the first payload when `data` is refreshed by callTool or tool-result', async () => {
     const { useMcpApp } = await import('../src/runtime/app/use-mcp-app')
     const scope = effectScope()
