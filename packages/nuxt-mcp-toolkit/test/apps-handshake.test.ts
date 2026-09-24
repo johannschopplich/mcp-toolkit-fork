@@ -477,6 +477,12 @@ describe('useMcpApp (host requests)', () => {
     reply('ui/update-model-context', { result: {} })
     await expect(update).resolves.toBeUndefined()
 
+    const withoutContent = api.updateModelContext({ content: undefined })
+    await flush()
+    expect(win.posted.findLast(p => p.method === 'ui/update-model-context')?.params).toEqual({ content: [] })
+    reply('ui/update-model-context', { result: {} })
+    await withoutContent
+
     const failing = api.updateModelContext({ content: [{ type: 'text', text: 'b' }] })
     await flush()
     reply('ui/update-model-context', { error: { code: -32602, message: 'Invalid params', data: { field: 'content' } } })
@@ -509,6 +515,15 @@ describe('useMcpApp (host requests)', () => {
 
     await expect(api.downloadFile([])).rejects.toMatchObject({ code: -32601 })
     expect(win.posted.find(p => p.method === 'ui/download-file')).toBeUndefined()
+    scope.stop()
+  })
+
+  it('rejects host requests when there is no host window', async () => {
+    delete (win as { parent?: unknown }).parent
+    const { api, scope } = await mountApp()
+
+    await expect(api.requestDisplayMode('fullscreen')).rejects.toThrow('there is no host window')
+    await expect(api.downloadFile([])).rejects.toThrow('there is no host window')
     scope.stop()
   })
 

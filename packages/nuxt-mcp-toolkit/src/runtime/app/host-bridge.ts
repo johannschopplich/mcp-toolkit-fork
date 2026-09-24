@@ -66,6 +66,17 @@ declare global {
 
 export type LegacyMessageType = 'prompt' | 'link'
 
+/** Rejection of a host request – the host's JSON-RPC `code` and `data`, or `cancelled` for a declined download. */
+export interface McpAppRequestError extends Error {
+  code?: number
+  data?: unknown
+  cancelled?: boolean
+}
+
+export function createRequestError(message: string, fields: Pick<McpAppRequestError, 'code' | 'data' | 'cancelled'> = {}): McpAppRequestError {
+  return Object.assign(new Error(message), fields)
+}
+
 export interface HostBridge {
   /** Negotiated host context. `null` until the handshake completes, then kept current by `host-context-changed`. */
   hostContext: Ref<HostContext | null>
@@ -125,6 +136,10 @@ export function useHostBridge(): HostBridge {
   return cached
 }
 
+export function hasHostWindow(): boolean {
+  return typeof window !== 'undefined' && !!window.parent && window.parent !== window
+}
+
 /** Test-only: drop the cached bridge so the next call rebuilds it. */
 export function __resetHostBridgeForTests(): void {
   cached = undefined
@@ -154,7 +169,7 @@ function createBridge(): HostBridge {
   const openai = typeof window !== 'undefined' ? window.openai : undefined
   if (openai?.toolOutput !== undefined) initialData = openai.toolOutput
 
-  if (typeof window === 'undefined' || !window.parent || window.parent === window) {
+  if (!hasHostWindow()) {
     return makeNoopBridge({ hostContext, hostCapabilities, initialized, error, initialData, openai, setError })
   }
 
@@ -203,7 +218,7 @@ function createBridge(): HostBridge {
       pendingJsonRpc.delete(data.id)
       if (data.error) {
         const { code, message, data: errorData } = data.error
-        entry.reject(Object.assign(new Error(message ?? 'JSON-RPC error'), { code, data: errorData }))
+        entry.reject(createRequestError(message ?? 'JSON-RPC error', { code, data: errorData }))
       }
       else entry.resolve(data.result)
       return

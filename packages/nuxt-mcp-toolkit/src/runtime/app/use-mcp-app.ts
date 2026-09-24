@@ -6,8 +6,8 @@ import { useToolCall } from './use-tool-call'
 import { useExternalLink } from './use-external-link'
 import { useHostRequests, type UseHostRequestsReturn } from './use-host-requests'
 
-export type { DisplayMode, HostCapabilities, HostContext } from './host-bridge'
-export type { DownloadFileContent, McpAppRequestError } from './use-host-requests'
+export type { DisplayMode, HostCapabilities, HostContext, McpAppRequestError } from './host-bridge'
+export type { DownloadFileContent } from './use-host-requests'
 export type { UseToolCallReturn } from './use-tool-call'
 export { useToolCall } from './use-tool-call'
 
