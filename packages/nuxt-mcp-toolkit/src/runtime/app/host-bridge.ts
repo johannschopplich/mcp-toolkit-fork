@@ -49,6 +49,9 @@ declare global {
 
 export type LegacyMessageType = 'prompt' | 'link'
 
+/** What the host pushed for the tool call that opened the view. */
+export type ToolOutcome = { data: unknown } | { error: Error }
+
 export interface HostBridge {
   /** Negotiated host context. `null` until the handshake completes. */
   hostContext: Ref<HostContext | null>
@@ -73,8 +76,8 @@ export interface HostBridge {
    * @internal
    */
   postLegacy: (type: LegacyMessageType, payload: Record<string, unknown>) => void
-  /** Subscribe to host-pushed `ui/notifications/tool-result` (and `openai:set_globals`). */
-  onToolResult: (cb: (data: unknown) => void) => () => void
+  /** Subscribe to host-pushed `tool-result` / `tool-cancelled` (and `openai:set_globals`). */
+  onToolResult: (cb: (outcome: ToolOutcome) => void) => () => void
   /** Resolves once the `ui/initialize` handshake completes (or fails). */
   whenReady: () => Promise<void>
 }
@@ -86,6 +89,17 @@ interface JsonRpcMessage {
   params?: Record<string, unknown>
   result?: unknown
   error?: { code: number, message: string }
+}
+
+interface ToolResultParams {
+  isError?: boolean
+  content?: Array<{ type: string, text?: unknown }>
+  structuredContent?: unknown
+}
+
+function errorText(content: ToolResultParams['content']): string | undefined {
+  const text = content?.flatMap(block => block.type === 'text' && typeof block.text === 'string' ? [block.text] : []).join('\n')
+  return text || undefined
 }
 
 interface PendingRequest {
@@ -124,13 +138,20 @@ function createBridge(): HostBridge {
 
   let nextId = 1
   const pendingJsonRpc = new Map<string | number, PendingRequest>()
-  const toolResultSubs = new Set<(data: unknown) => void>()
+  const toolResultSubs = new Set<(outcome: ToolOutcome) => void>()
   // Replayed to late subscribers — hosts push each result only once.
-  let latestToolResult: unknown
+  let latestToolResult: ToolOutcome | undefined
+  const publish = (outcome: ToolOutcome): void => {
+    latestToolResult = outcome
+    for (const sub of toolResultSubs) sub(outcome)
+  }
   const publishToolResult = (next: unknown): void => {
-    if (next === undefined) return
-    latestToolResult = next
-    for (const sub of toolResultSubs) sub(next)
+    if (next !== undefined) publish({ data: next })
+  }
+  const publishToolFailure = (message: string): void => {
+    const err = new Error(message)
+    setError(err)
+    publish({ error: err })
   }
 
   const post = (msg: unknown): void => {
@@ -176,7 +197,15 @@ function createBridge(): HostBridge {
       else entry.resolve(data.result)
       return
     }
-    if (data.method === 'ui/notifications/tool-result') publishToolResult(data.params?.structuredContent)
+    if (data.method === 'ui/notifications/tool-result') {
+      const params = data.params as ToolResultParams | undefined
+      if (params?.isError) publishToolFailure(errorText(params.content) ?? 'useMcpApp: the tool call failed.')
+      else publishToolResult(params?.structuredContent)
+    }
+    else if (data.method === 'ui/notifications/tool-cancelled') {
+      const reason = data.params?.reason
+      publishToolFailure(typeof reason === 'string' && reason ? `useMcpApp: the tool call was cancelled: ${reason}` : 'useMcpApp: the tool call was cancelled.')
+    }
   }
 
   const onOpenAiSetGlobals = (event: Event): void => {

@@ -6,7 +6,7 @@ export interface UseMcpAppDataReturn<T> {
   initialData: Ref<T | null>
   /** Latest payload, refreshed via host `tool-result` pushes. */
   data: Ref<T | null>
-  /** One-way latch: `true` until the first payload arrives, `false` forever after. */
+  /** One-way latch: `true` until the first payload arrives or the tool call fails, `false` forever after. */
   loading: Ref<boolean>
   /** Last error from the host, the transport, or a malformed payload. */
   error: Ref<Error | null>
@@ -35,7 +35,10 @@ export function useMcpAppData<T = unknown>(): UseMcpAppDataReturn<T> {
 
   if (bridge.initialData !== undefined) setData(bridge.initialData)
 
-  const unsubscribe = bridge.onToolResult(setData)
+  const unsubscribe = bridge.onToolResult((outcome) => {
+    if ('data' in outcome) setData(outcome.data)
+    else loading.value = false
+  })
   if (getCurrentScope()) onScopeDispose(unsubscribe)
 
   return {

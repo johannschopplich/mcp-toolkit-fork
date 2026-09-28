@@ -134,6 +134,51 @@ describe('useMcpApp (host bridge)', () => {
     scope.stop()
   })
 
+  it('sets `error` and clears `loading` when the host pushes an error result', async () => {
+    const { useMcpApp } = await import('../src/runtime/app/use-mcp-app')
+    const scope = effectScope()
+    let api: ReturnType<typeof useMcpApp> | undefined
+    scope.run(() => {
+      api = useMcpApp()
+    })
+
+    dispatch({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: { isError: true, content: [{ type: 'text', text: 'Quota exceeded' }] },
+    })
+
+    expect(api?.data.value).toBeNull()
+    expect(api?.loading.value).toBe(false)
+    expect(api?.error.value?.message).toBe('Quota exceeded')
+    scope.stop()
+  })
+
+  it('sets `error` and clears `loading` when the host cancels the tool call', async () => {
+    const { useMcpApp } = await import('../src/runtime/app/use-mcp-app')
+    const scope = effectScope()
+    let api: ReturnType<typeof useMcpApp> | undefined
+    scope.run(() => {
+      api = useMcpApp()
+    })
+
+    dispatch({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-cancelled',
+      params: { reason: 'user stopped the response' },
+    })
+
+    expect(api?.loading.value).toBe(false)
+    expect(api?.error.value?.message).toBe('useMcpApp: the tool call was cancelled: user stopped the response')
+
+    let late: ReturnType<typeof useMcpApp> | undefined
+    scope.run(() => {
+      late = useMcpApp()
+    })
+    expect(late?.loading.value).toBe(false)
+    scope.stop()
+  })
+
   it('callTool round-trips structuredContent back into `data`', async () => {
     // Regression: callTool used to be fire-and-forget — filter chips never updated.
     const { useMcpApp } = await import('../src/runtime/app/use-mcp-app')

@@ -146,8 +146,8 @@ Auto-imported into every MCP App SFC. Returns the iframe ↔ host bridge:
 ```typescript
 const {
   initialData,  // Ref<T | null>            — first payload the view receives, never updated after
-  data,         // Ref<T | null>            — hydrated from structuredContent, refreshed by callTool
-  loading,      // Ref<boolean>             — true until first payload arrives
+  data,         // Ref<T | null>            — structuredContent pushed by the host, refreshed by callTool
+  loading,      // Ref<boolean>             — true until first payload arrives or the call fails
   error,        // Ref<Error | null>        — bridge / transport / payload errors
   pending,      // Ref<boolean>             — true while a callTool() is in flight
   hostContext,  // Ref<HostContext | null>  — theme, displayMode, locale, …
