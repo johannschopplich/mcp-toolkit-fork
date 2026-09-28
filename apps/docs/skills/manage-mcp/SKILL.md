@@ -688,7 +688,7 @@ const { data, sendPrompt } = useMcpApp<{ swatches: { name: string, hex: string }
 </template>
 ```
 
-Each SFC becomes a tool, a UI resource at `ui://mcp-app/<name>`, and a single-file HTML bundle. The handler runs server-side; `structuredContent` is inlined into the HTML so the iframe boots **with full data on the first paint**.
+Each SFC becomes a tool, a UI resource at `ui://mcp-app/<name>`, and a single-file HTML bundle. The handler runs server-side; the host renders the HTML from the `ui://` resource and pushes `structuredContent` into the iframe.
 
 `useMcpApp<T>()` exposes `data`, `loading`, `error`, `hostContext`, `hostCapabilities`, `callTool(name, params)`, `sendPrompt(prompt)`, `openLink(url)`, `requestDisplayMode(mode)`, `updateModelContext(params)`, and `downloadFile(contents)`.
 

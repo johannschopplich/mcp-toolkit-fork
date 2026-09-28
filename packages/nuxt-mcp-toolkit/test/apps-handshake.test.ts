@@ -157,6 +157,51 @@ describe('useMcpApp (host bridge)', () => {
     scope.stop()
   })
 
+  it('sets `error` and clears `loading` when the host pushes an error result', async () => {
+    const { useMcpApp } = await import('../src/runtime/app/use-mcp-app')
+    const scope = effectScope()
+    let api: ReturnType<typeof useMcpApp> | undefined
+    scope.run(() => {
+      api = useMcpApp()
+    })
+
+    dispatch({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: { isError: true, content: [{ type: 'text', text: 'Quota exceeded' }] },
+    })
+
+    expect(api?.data.value).toBeNull()
+    expect(api?.loading.value).toBe(false)
+    expect(api?.error.value?.message).toBe('Quota exceeded')
+    scope.stop()
+  })
+
+  it('sets `error` and clears `loading` when the host cancels the tool call', async () => {
+    const { useMcpApp } = await import('../src/runtime/app/use-mcp-app')
+    const scope = effectScope()
+    let api: ReturnType<typeof useMcpApp> | undefined
+    scope.run(() => {
+      api = useMcpApp()
+    })
+
+    dispatch({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-cancelled',
+      params: { reason: 'user stopped the response' },
+    })
+
+    expect(api?.loading.value).toBe(false)
+    expect(api?.error.value?.message).toBe('useMcpApp: the tool call was cancelled: user stopped the response')
+
+    let late: ReturnType<typeof useMcpApp> | undefined
+    scope.run(() => {
+      late = useMcpApp()
+    })
+    expect(late?.loading.value).toBe(false)
+    scope.stop()
+  })
+
   it('callTool round-trips structuredContent back into `data`', async () => {
     // Regression: callTool used to be fire-and-forget — filter chips never updated.
     const { useMcpApp } = await import('../src/runtime/app/use-mcp-app')
@@ -220,13 +265,26 @@ describe('useMcpApp (host bridge)', () => {
     scope.stop()
   })
 
-  it('keeps `initialData` unchanged when `data` is refreshed by callTool or tool-result', async () => {
-    ;(globalThis as { document: { getElementById: (id: string) => { textContent: string } | null, readyState: string } }).document = {
-      getElementById: (id: string) =>
-        id === '__mcp_app_data__' ? { textContent: JSON.stringify({ listId: 'abc-123' }) } : null,
-      readyState: 'complete',
-    }
+  it('hands the latest tool result to a `useMcpApp()` call made after the push', async () => {
+    const { useMcpApp } = await import('../src/runtime/app/use-mcp-app')
+    const scope = effectScope()
+    scope.run(() => useMcpApp())
+    dispatch({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: { structuredContent: { listId: 'abc-123' } },
+    })
 
+    let late: ReturnType<typeof useMcpApp<{ listId: string }>> | undefined
+    scope.run(() => {
+      late = useMcpApp<{ listId: string }>()
+    })
+    expect(late?.data.value).toEqual({ listId: 'abc-123' })
+    expect(late?.loading.value).toBe(false)
+    scope.stop()
+  })
+
+  it('keeps `initialData` at the first payload when `data` is refreshed by callTool or tool-result', async () => {
     const { useMcpApp } = await import('../src/runtime/app/use-mcp-app')
     const scope = effectScope()
     let api: ReturnType<typeof useMcpApp<{ listId: string, total?: number }>> | undefined
@@ -234,6 +292,12 @@ describe('useMcpApp (host bridge)', () => {
       api = useMcpApp<{ listId: string, total?: number }>()
     })
 
+    expect(api?.initialData.value).toBeNull()
+    dispatch({
+      jsonrpc: '2.0',
+      method: 'ui/notifications/tool-result',
+      params: { structuredContent: { listId: 'abc-123' } },
+    })
     expect(api?.initialData.value).toEqual({ listId: 'abc-123' })
     expect(api?.data.value).toEqual({ listId: 'abc-123' })
 

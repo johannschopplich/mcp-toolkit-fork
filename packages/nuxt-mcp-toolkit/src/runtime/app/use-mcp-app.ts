@@ -12,13 +12,13 @@ export type { UseToolCallReturn } from './use-tool-call'
 export { useToolCall } from './use-tool-call'
 
 export interface UseMcpAppReturn<T = unknown> extends UseHostRequestsReturn {
-  /** Snapshot of the handler's initial `structuredContent` at mount — never updated. */
+  /** First `structuredContent` the view receives — never updated after. */
   initialData: Ref<T | null>
-  /** Hydrated from the inline data-script, then refreshed via `tool-result` and `callTool`. */
+  /** Latest `structuredContent`, refreshed via `tool-result` and `callTool`. */
   data: Ref<T | null>
   /** Last error from the host, the transport, or a malformed payload. */
   error: Ref<Error | null>
-  /** One-way latch: `true` until the first payload arrives, `false` forever after. */
+  /** One-way latch: `true` until the first payload arrives or the tool call fails, `false` forever after. */
   loading: Ref<boolean>
   /** `true` while a {@link callTool} request is in flight. */
   pending: Ref<boolean>
