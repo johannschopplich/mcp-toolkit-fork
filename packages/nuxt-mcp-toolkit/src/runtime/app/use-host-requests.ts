@@ -5,6 +5,19 @@ const DISPLAY_MODE_TIMEOUT_MS = 10_000
 // The host asks the user to confirm a download before it answers.
 const DOWNLOAD_TIMEOUT_MS = 120_000
 const METHOD_NOT_FOUND = -32601
+const INVALID_PARAMS = -32602
+// The host fetches linked files, so an iframe must not hand it `file:` or `javascript:`.
+const ALLOWED_LINK_SCHEMES = new Set(['http:', 'https:'])
+
+function assertFetchableLinks(contents: DownloadFileContent[]): void {
+  for (const item of contents) {
+    if (item.type !== 'resource_link') continue
+    const protocol = URL.canParse(item.uri) ? new URL(item.uri).protocol : undefined
+    if (!protocol || !ALLOWED_LINK_SCHEMES.has(protocol)) {
+      throw createRequestError(`useMcpApp: cannot download ${JSON.stringify(item.uri)}, linked files must use http or https.`, { code: INVALID_PARAMS })
+    }
+  }
+}
 
 /** A file for `downloadFile` — the host derives the suggested filename from the last URI segment. */
 export type DownloadFileContent = EmbeddedResource | ResourceLink
@@ -62,6 +75,7 @@ export function useHostRequests(): UseHostRequestsReturn {
   }
 
   const downloadFile = async (contents: DownloadFileContent[]): Promise<void> => {
+    assertFetchableLinks(contents)
     await ensureReady('ui/download-file', 'downloadFile')
     const result = await bridge.request<{ isError?: boolean } | null>('ui/download-file', { contents }, DOWNLOAD_TIMEOUT_MS)
     if (result?.isError) {

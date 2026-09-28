@@ -518,6 +518,17 @@ describe('useMcpApp (host requests)', () => {
     scope.stop()
   })
 
+  it('downloadFile only hands the host http(s) links to fetch', async () => {
+    const { api, scope } = await mountApp()
+    await completeHandshake({ hostCapabilities: { downloadFile: {} } })
+
+    for (const uri of ['javascript:alert(1)', 'file:///etc/passwd', 'data:text/plain,hi', 'not a url']) {
+      await expect(api.downloadFile([{ type: 'resource_link', uri, name: 'file' }])).rejects.toMatchObject({ code: -32602 })
+    }
+    expect(win.posted.find(p => p.method === 'ui/download-file')).toBeUndefined()
+    scope.stop()
+  })
+
   it('rejects host requests when there is no host window', async () => {
     delete (win as { parent?: unknown }).parent
     const { api, scope } = await mountApp()
