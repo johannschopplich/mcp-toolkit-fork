@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { defineMcpApp, _createAppTool } from '../src/runtime/server/mcp/definitions/apps'
+import { defineMcpApp, _createAppResource, _createAppTool } from '../src/runtime/server/mcp/definitions/apps'
 import { enrichNameTitle } from '../src/runtime/server/mcp/definitions/utils'
 
 const ctx = { name: 'create-final-icon', html: '<!DOCTYPE html><html><head></head><body></body></html>' }
@@ -32,5 +32,16 @@ describe('MCP App — tool title', () => {
 
     expect(app).toEqual({ name: 'icon', title: 'Create Final Icon' })
     expect(app).toEqual(toolFile)
+  })
+})
+
+describe('MCP App — resource title', () => {
+  it.each([
+    ['no title', defineMcpApp(), 'Create Final Icon'],
+    ['an explicit name', defineMcpApp({ name: 'icon' }), 'Create Final Icon'],
+    ['an explicit title', defineMcpApp({ title: 'Final icon' }), 'Final icon'],
+  ])('matches the tool title for an app with %s', (_, app, title) => {
+    expect(_createAppResource(app, ctx).title).toBe(title)
+    expect(_createAppTool(app, ctx).title).toBe(title)
   })
 })
