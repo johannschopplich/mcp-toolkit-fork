@@ -16,7 +16,6 @@ import { version } from '../../../package.json'
  * @see https://mcpui.dev/guide/embeddable-ui
  */
 
-const DATA_SCRIPT_ID = '__mcp_app_data__'
 const MCP_APPS_PROTOCOL_VERSION = '2026-01-26'
 const HANDSHAKE_TIMEOUT_MS = 5_000
 const APP_INFO = { name: 'nuxt-mcp-toolkit', version } as const
@@ -50,12 +49,15 @@ declare global {
 
 export type LegacyMessageType = 'prompt' | 'link'
 
+/** What the host pushed for the tool call that opened the view. */
+export type ToolOutcome = { data: unknown } | { error: Error }
+
 export interface HostBridge {
   /** Negotiated host context. `null` until the handshake completes. */
   hostContext: Ref<HostContext | null>
   /** Last error from the transport, the host, or a malformed payload. */
   error: Ref<Error | null>
-  /** Initial payload from the inline data-script or `window.openai.toolOutput`. */
+  /** Initial payload from `window.openai.toolOutput`. */
   initialData: unknown
   /** `window.openai`, if ChatGPT injected it. */
   openai: OpenAiAppsGlobal | undefined
@@ -74,8 +76,8 @@ export interface HostBridge {
    * @internal
    */
   postLegacy: (type: LegacyMessageType, payload: Record<string, unknown>) => void
-  /** Subscribe to host-pushed `ui/notifications/tool-result` (and `openai:set_globals`). */
-  onToolResult: (cb: (data: unknown) => void) => () => void
+  /** Subscribe to host-pushed `tool-result` / `tool-cancelled` (and `openai:set_globals`). */
+  onToolResult: (cb: (outcome: ToolOutcome) => void) => () => void
   /** Resolves once the `ui/initialize` handshake completes (or fails). */
   whenReady: () => Promise<void>
 }
@@ -87,6 +89,17 @@ interface JsonRpcMessage {
   params?: Record<string, unknown>
   result?: unknown
   error?: { code: number, message: string }
+}
+
+interface ToolResultParams {
+  isError?: boolean
+  content?: Array<{ type: string, text?: unknown }>
+  structuredContent?: unknown
+}
+
+function errorText(content: ToolResultParams['content']): string | undefined {
+  const text = content?.flatMap(block => block.type === 'text' && typeof block.text === 'string' ? [block.text] : []).join('\n')
+  return text || undefined
 }
 
 interface PendingRequest {
@@ -116,20 +129,8 @@ function createBridge(): HostBridge {
     error.value = err instanceof Error ? err : new Error(String(err))
   }
 
-  let initialData: unknown
-  if (typeof document !== 'undefined') {
-    const el = document.getElementById(DATA_SCRIPT_ID)
-    if (el?.textContent) {
-      try {
-        initialData = JSON.parse(el.textContent)
-      }
-      catch (err) {
-        setError(err)
-      }
-    }
-  }
   const openai = typeof window !== 'undefined' ? window.openai : undefined
-  if (openai?.toolOutput !== undefined) initialData = openai.toolOutput
+  const initialData = openai?.toolOutput
 
   if (typeof window === 'undefined' || !window.parent || window.parent === window) {
     return makeNoopBridge({ hostContext, error, initialData, openai, setError })
@@ -137,7 +138,21 @@ function createBridge(): HostBridge {
 
   let nextId = 1
   const pendingJsonRpc = new Map<string | number, PendingRequest>()
-  const toolResultSubs = new Set<(data: unknown) => void>()
+  const toolResultSubs = new Set<(outcome: ToolOutcome) => void>()
+  // Replayed to late subscribers — hosts push each result only once.
+  let latestToolResult: ToolOutcome | undefined
+  const publish = (outcome: ToolOutcome): void => {
+    latestToolResult = outcome
+    for (const sub of toolResultSubs) sub(outcome)
+  }
+  const publishToolResult = (next: unknown): void => {
+    if (next !== undefined) publish({ data: next })
+  }
+  const publishToolFailure = (message: string): void => {
+    const err = new Error(message)
+    setError(err)
+    publish({ error: err })
+  }
 
   const post = (msg: unknown): void => {
     try {
@@ -183,14 +198,18 @@ function createBridge(): HostBridge {
       return
     }
     if (data.method === 'ui/notifications/tool-result') {
-      const next = data.params?.structuredContent
-      if (next !== undefined) for (const sub of toolResultSubs) sub(next)
+      const params = data.params as ToolResultParams | undefined
+      if (params?.isError) publishToolFailure(errorText(params.content) ?? 'useMcpApp: the tool call failed.')
+      else publishToolResult(params?.structuredContent)
+    }
+    else if (data.method === 'ui/notifications/tool-cancelled') {
+      const reason = data.params?.reason
+      publishToolFailure(typeof reason === 'string' && reason ? `useMcpApp: the tool call was cancelled: ${reason}` : 'useMcpApp: the tool call was cancelled.')
     }
   }
 
   const onOpenAiSetGlobals = (event: Event): void => {
-    const next = (event as CustomEvent<{ globals?: { toolOutput?: unknown } }>).detail?.globals?.toolOutput
-    if (next !== undefined) for (const sub of toolResultSubs) sub(next)
+    publishToolResult((event as CustomEvent<{ globals?: { toolOutput?: unknown } }>).detail?.globals?.toolOutput)
   }
 
   window.addEventListener('message', onMessage)
@@ -237,6 +256,7 @@ function createBridge(): HostBridge {
     postLegacy,
     onToolResult: (cb) => {
       toolResultSubs.add(cb)
+      if (latestToolResult !== undefined) cb(latestToolResult)
       return () => toolResultSubs.delete(cb)
     },
     whenReady: () => handshakePromise,
