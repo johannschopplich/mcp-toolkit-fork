@@ -4,6 +4,7 @@ import type { McpRequestExtra } from './sdk-extra'
 import type { McpToolDefinition, McpToolCallback, McpToolAnnotations } from './tools'
 import type { StandardMcpResourceDefinition } from './resources'
 import { normalizeToolResult, type McpToolCallbackResult } from './results'
+import { titleCase } from './utils'
 
 /** MIME advertised for MCP App resources (SEP-1865, ext-apps draft `2026-01-26`). */
 export const MCP_APP_MIME_TYPE = 'text/html;profile=mcp-app'
@@ -303,7 +304,8 @@ export function _createAppTool(
 
   return {
     name: app.name ?? ctx.name,
-    title: app.title,
+    // Title from the SFC filename, as file-based tools are titled from theirs.
+    title: app.title ?? titleCase(ctx.name),
     description: app.description,
     inputSchema: app.inputSchema,
     annotations: app.annotations,
