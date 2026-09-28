@@ -12,11 +12,11 @@ export type { UseToolCallReturn } from './use-tool-call'
 export { useToolCall } from './use-tool-call'
 
 export interface UseMcpAppReturn<T = unknown> extends UseHostRequestsReturn {
-  /** First `structuredContent` the view receives — never updated after. */
+  /** First `structuredContent` the host pushes — never updated after. */
   initialData: Ref<T | null>
   /** Latest `structuredContent`, refreshed via `tool-result` and `callTool`. */
   data: Ref<T | null>
-  /** Last error from the host, the transport, or a malformed payload. */
+  /** Last error from the host, the transport, a malformed payload, or a failed {@link callTool}. */
   error: Ref<Error | null>
   /** One-way latch: `true` until the first payload arrives or the tool call fails, `false` forever after. */
   loading: Ref<boolean>
@@ -50,7 +50,14 @@ export function useMcpApp<T = unknown>(): UseMcpAppReturn<T> {
 
   const callTool = (name: string, params: Record<string, unknown> = {}): Promise<T | null> => {
     return tool.call(name, params).then((next) => {
-      if (next !== null) data.value = next
+      if (next !== null) {
+        data.value = next
+        loading.value = false
+      }
+      else if (tool.error.value) {
+        error.value = tool.error.value
+        loading.value = false
+      }
       return next
     })
   }
