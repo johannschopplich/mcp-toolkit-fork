@@ -46,15 +46,10 @@ export default createMcpTransportHandler(async (createServer, event) => {
 
   const server = createServer()
   event.context._mcpServer = server
-  const { createMcpHandler } = await import('agents/mcp')
-  // `agents/mcp` accepts the SDK `McpServer` but its public type signature
-  // pins a slightly older minor of `@modelcontextprotocol/sdk`. The runtime
-  // contract is identical — we cast through `unknown` to dodge the
-  // structurally-incompatible internal types without weakening the rest of
-  // the file.
-  const handler = createMcpHandler(server as unknown as Parameters<typeof createMcpHandler>[0], {
-    route: '',
-  })
+  // `createMcpHandler` deprecates SDK v1 servers and rejects one from an SDK copy other than
+  // its own — `agents` pins an exact SDK version. The legacy handler takes any v1 server.
+  const { createLegacyMcpHandler } = await import('agents/mcp')
+  const handler = createLegacyMcpHandler(server, { route: '' })
   const request = toWebRequest(event)
   const cf = event.context.cloudflare as CloudflareContext | undefined
   return handler(request, cf?.env ?? {}, cf?.ctx ?? fallbackCtx)
