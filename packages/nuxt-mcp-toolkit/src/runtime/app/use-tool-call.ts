@@ -1,5 +1,5 @@
 import { ref, type Ref } from 'vue'
-import { useHostBridge } from './host-bridge'
+import { errorText, useHostBridge, type ToolResultParams } from './host-bridge'
 
 const SAFE_TOOL_NAME = /^[A-Z][\w.-]{0,127}$/i
 const TOOL_CALL_TIMEOUT_MS = 30_000
@@ -9,7 +9,7 @@ export interface UseToolCallReturn<T> {
   call: (...args: ToolCallArgs) => Promise<T | null>
   /** `true` while a `call` is in flight. */
   pending: Ref<boolean>
-  /** Last error from the call (transport, validation, or host-reported). */
+  /** Last error from the call (transport, validation, host-reported, or a tool result with `isError`). */
   error: Ref<Error | null>
   /** Last successful payload returned by `call`. */
   result: Ref<T | null>
@@ -44,6 +44,9 @@ export function useToolCall<T = unknown>(toolName?: string): UseToolCallReturn<T
       const raw = bridge.openai?.callTool
         ? await bridge.openai.callTool(name, params)
         : await bridge.request('tools/call', { name, arguments: params }, TOOL_CALL_TIMEOUT_MS)
+      if ((raw as ToolResultParams | null)?.isError) {
+        throw new Error(errorText((raw as ToolResultParams).content) ?? `useToolCall: the "${name}" tool call failed.`)
+      }
       const next = pickStructured<T>(raw)
       if (next !== null) result.value = next
       return next

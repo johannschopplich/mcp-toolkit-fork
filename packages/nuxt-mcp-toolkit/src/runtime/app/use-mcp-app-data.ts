@@ -2,7 +2,7 @@ import { getCurrentScope, onScopeDispose, ref, type Ref } from 'vue'
 import { useHostBridge, type HostCapabilities, type HostContext } from './host-bridge'
 
 export interface UseMcpAppDataReturn<T> {
-  /** First payload the view receives — never updated after. */
+  /** First payload the host pushes — never updated after. */
   initialData: Ref<T | null>
   /** Latest payload, refreshed via host `tool-result` pushes. */
   data: Ref<T | null>
