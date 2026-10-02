@@ -10,5 +10,7 @@ export default defineConfig({
     // chasing it test-by-test.
     testTimeout: process.env.CI ? 60_000 : 20_000,
     retry: process.env.CI ? 1 : 0,
+    // Inlined so `vi.mock` can stand in for the `cloudflare:*` modules `agents/mcp` imports.
+    server: { deps: { inline: ['agents'] } },
   },
 })
