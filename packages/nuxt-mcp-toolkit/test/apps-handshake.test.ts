@@ -223,6 +223,50 @@ describe('useMcpApp (host bridge)', () => {
     scope.stop()
   })
 
+  it('clears `loading` when callTool resolves before any tool-result', async () => {
+    const { api, scope } = await mountApp()
+    expect(api.loading.value).toBe(true)
+
+    const callPromise = api.callTool('list_todos')
+    await completeHandshake()
+    reply('tools/call', { result: { structuredContent: { total: 3 } } })
+    await callPromise
+
+    expect(api.data.value).toEqual({ total: 3 })
+    expect(api.initialData.value).toBeNull()
+    expect(api.loading.value).toBe(false)
+    scope.stop()
+  })
+
+  it('sets `error` and clears `loading` when callTool fails before any tool-result', async () => {
+    const { api, scope } = await mountApp()
+
+    const callPromise = api.callTool('list_todos')
+    await completeHandshake()
+    reply('tools/call', { result: { isError: true, content: [{ type: 'text', text: 'Database offline' }] } })
+    await callPromise
+
+    expect(api.error.value?.message).toBe('Database offline')
+    expect(api.loading.value).toBe(false)
+    scope.stop()
+  })
+
+  it('keeps the result of a callTool that resolves after another callTool failed', async () => {
+    const { api, scope } = await mountApp()
+
+    const firstCall = api.callTool('list_todos')
+    const secondCall = api.callTool('list_todos')
+    await completeHandshake()
+    const [firstRequest, secondRequest] = win.posted.filter(p => p.method === 'tools/call')
+    dispatch({ jsonrpc: '2.0', id: secondRequest!.id, result: { isError: true, content: [{ type: 'text', text: 'Database offline' }] } })
+    await secondCall
+    dispatch({ jsonrpc: '2.0', id: firstRequest!.id, result: { structuredContent: { total: 3 } } })
+    await firstCall
+
+    expect(api.data.value).toEqual({ total: 3 })
+    scope.stop()
+  })
+
   it('routes callTool / sendPrompt / openLink through window.openai when ChatGPT injects it', async () => {
     // ChatGPT silently drops postMessage from inner iframes — must route through `window.openai.*`.
     const calls: Array<['callTool' | 'sendFollowUpMessage' | 'openExternal', unknown]> = []
@@ -572,6 +616,24 @@ describe('internal composables', () => {
 
     await completeHandshake()
     expect(win.posted.find(p => p.method === 'tools/call')).toBeDefined()
+    scope.stop()
+  })
+
+  it.each([
+    ['its text', [{ type: 'text', text: 'Icon not found' }], 'Icon not found'],
+    ['a fallback without text', [], 'useToolCall: the "get_icon_png" tool call failed.'],
+  ])('useToolCall sets `error` to %s when the tool result reports `isError`', async (_, content, message) => {
+    const { useToolCall } = await import('../src/runtime/app/use-tool-call')
+    const scope = effectScope()
+    const tool = scope.run(() => useToolCall('get_icon_png'))!
+
+    const promise = tool.call({ iconId: 'missing' })
+    await completeHandshake()
+    reply('tools/call', { result: { isError: true, structuredContent: { iconId: 'missing' }, content } })
+
+    expect(await promise).toBeNull()
+    expect(tool.error.value?.message).toBe(message)
+    expect(tool.result.value).toBeNull()
     scope.stop()
   })
 })

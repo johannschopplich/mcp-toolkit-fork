@@ -139,14 +139,14 @@ interface JsonRpcMessage {
   error?: { code: number, message: string, data?: unknown }
 }
 
-interface ToolResultParams {
+export interface ToolResultParams {
   isError?: boolean
   content?: Array<{ type: string, text?: unknown }>
   structuredContent?: unknown
   _meta?: unknown
 }
 
-function errorText(content: ToolResultParams['content']): string | undefined {
+export function errorText(content: ToolResultParams['content']): string | undefined {
   const text = content?.flatMap(block => block.type === 'text' && typeof block.text === 'string' ? [block.text] : []).join('\n')
   return text || undefined
 }

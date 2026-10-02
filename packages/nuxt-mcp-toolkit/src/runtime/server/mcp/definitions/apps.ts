@@ -292,7 +292,7 @@ export function _createAppResource(
 
   return {
     name: `${ctx.name}-app`,
-    title: app.title ?? app.name ?? ctx.name,
+    title: app.title ?? titleCase(ctx.name),
     description: app.description,
     uri: resourceUri,
     metadata: { mimeType: MCP_APP_MIME_TYPE },
